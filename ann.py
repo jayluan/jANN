@@ -10,7 +10,7 @@ def transferFunction(sum):
     return math.tanh(sum)
 
 def transferFunctionDerivative(sum):
-    return 1-sum^2
+    return 1-sum**2
 
 class Connection(object):
     def __init__(self):
@@ -32,11 +32,11 @@ class Neuron(object):
             self._outputWeights[-1].weight = randomWeight()
 
 
-    def _sumDOW(nextLayer):
+    def _sumDOW(self, nextLayer):
         sum = 0.0
         #sum contribution
         for neuronNum in xrange(0, len(nextLayer)-1):
-            sum = sum + nextLayer[neuronNum].weight * nextLayer[neuronNum]._gradient
+            sum = sum + self._outputWeights[neuronNum].weight * nextLayer[neuronNum]._gradient
         return sum
 
 
@@ -60,11 +60,11 @@ class Neuron(object):
             #suming W*I
             sum = sum + prevLayer[neuronNum].getOutputVal() * weight_to_neuron
 
-        self._outputVal - transferFunction(sum)
+        self._outputVal = transferFunction(sum)
 
 
     def calcOutputGradients(self, targetVal):
-        delta = targetVals - self._outputVal
+        delta = targetVal - self._outputVal
         self._gradient = delta * transferFunctionDerivative(self._outputVal)
 
     def calcHiddenGradients(self, nextLayer):
@@ -149,7 +149,7 @@ class Net(object):
         #calculate RMS error
         for neuronNum in xrange(0, len(targetVals)):
             delta = targetVals[neuronNum] - outputLayer[neuronNum].getOutputVal()
-            self._error = self._error + delta^2
+            self._error = self._error + float(delta)**2
         self._error = self._error/(len(outputLayer) - 1)
         self._error = math.sqrt(self._error)
 
@@ -176,17 +176,25 @@ class Net(object):
             layer = self._layers[layerNum]
             prevLayer = self._layers[layerNum-1]
 
-            for neuronNum in xrange(0, len(layer)):
+            for neuronNum in xrange(0, len(layer)-1):
                 layer[neuronNum].updateInputWeights(prevLayer)
 
     def getResults(self, results):
-        results = []
 
         for neuronNum in xrange(0, len(self._layers[-1])-1):
             results.append(self._layers[-1][neuronNum].getOutputVal())
 
     def getRecentAvgErr(self):
         return self._recentAvgError
+
+
+
+def printTestCase(myNet, a):
+    result = []
+    myNet.feedForward(a)
+    myNet.getResults(result)
+    print a
+    print result[0]
 
 if __name__ == '__main__':
     topology = [2, 2, 1]  #3 in the input layer, 2 in the second, 1 output
@@ -195,13 +203,15 @@ if __name__ == '__main__':
     resultVals = []
 
     inputs = np.genfromtxt('train.csv', delimiter=',')
-
+    map(np.random.shuffle, inputs)
     myNet = Net(topology)
 
+    print "************************* TRAIN PHASE *************************"
     nPass = 0
     for entry in inputs:
         nPass = nPass+1
-        print "Pass number" + str(nPass)+":"
+        print "***************************************************************"
+        print "Pass number " + str(nPass)+":"
         print entry
 
         #propagate the data
@@ -210,10 +220,23 @@ if __name__ == '__main__':
         #Collect output
         result = list()
         myNet.getResults(result)
-        print [entry[0], entry[1], result]
+        print [entry[0], entry[1], result[0]]
 
         #train on the data
         target = [entry[2]]
-        myNet.backProp(targetVals)
+        myNet.backProp(target)
 
         print "Avg Error: " + str(myNet.getRecentAvgErr())
+
+    print "******************** TEST PHASE ********************"
+    a = [1,1]
+    b = [1,0]
+    c = [0,1]
+    d = [1,1]
+
+    printTestCase(myNet, a)
+    printTestCase(myNet, b)
+    printTestCase(myNet, c)
+    printTestCase(myNet, d)
+
+
