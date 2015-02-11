@@ -102,7 +102,7 @@ class Net(object):
             layer = topology[i]
             self._layers.append([])
 
-            if i == len(topology):
+            if i == len(topology)-1:
                 numOutputs = 0
             else:
                 numOutputs = topology[i+1]
@@ -123,8 +123,8 @@ class Net(object):
         #check size-1 because theres an extra bias neruon!
         assert(len(inputVals) == len(self._layers[0])-1)
 
-        #assign input balues to input neruons (layer 0)
-        for neuronNum in xrange(0, inputVals):
+        #assign input values to input neruons (layer 0)
+        for neuronNum in xrange(0, len(inputVals)):
             self._layers[0][neuronNum].setOutputVal(inputVals[neuronNum])
 
         #now feed forward from first hidden layer (layer 1)
@@ -194,7 +194,7 @@ if __name__ == '__main__':
     targetVals = []
     resultVals = []
 
-    inputs = np.genfromtxt('train.csv')
+    inputs = np.genfromtxt('train.csv', delimiter=',')
 
     myNet = Net(topology)
 
