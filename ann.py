@@ -1,6 +1,9 @@
 import math
 import numpy as np
 import random
+from sklearn.utils import shuffle
+import networkx as nx
+import matplotlib.pyplot as plt
 #neural network
 
 def randomWeight():
@@ -25,7 +28,7 @@ class Neuron(object):
         self._index = index
         self._gradient = 0.0
         self._eta = 0.15 # [0.0 -> 1.0]
-        self._alpha = 0.5 # [0.0 -> h] momentum
+        self._alpha = 0.7 # [0.0 -> h] momentum
         #randomly intialize outut weights
         for c in xrange(0, numOutputs):
             self._outputWeights.append(Connection())
@@ -75,7 +78,7 @@ class Neuron(object):
 
     def updateInputWeights(self, prevLayer):
 
-        for neuronNum in xrange(0, len(prevLayer)-1):
+        for neuronNum in xrange(0, len(prevLayer)):
             neuron = prevLayer[neuronNum]
             oldDeltaWeight = neuron._outputWeights[self._index].deltaWeight
 
@@ -191,19 +194,41 @@ class Net(object):
 
 def printTestCase(myNet, a):
     result = []
-    myNet.feedForward(a)
+    myNet.feedForward([float(a[0]), float(a[1])])
     myNet.getResults(result)
     print a
     print result[0]
 
+def drawEdges(myNet):
+    G = nx.Graph()
+
+    #construct the graph
+    for layerNum in xrange(0, len(myNet._layers)-1):
+        for neuronNum in xrange(0, len(myNet._layers[layerNum])):
+            label0 = "%d, %d" % (layerNum, neuronNum)
+            G.add_node(label0, pos=(neuronNum, layerNum))
+            for connectionNum in xrange(0, len(myNet._layers[layerNum][neuronNum]._outputWeights)):
+                label1 = "%d, %d" % (layerNum+1, connectionNum)
+                G.add_node(label1, pos=(connectionNum, layerNum+1))
+                G.add_edge(label0, label1, weight = myNet._layers[layerNum][neuronNum]._outputWeights[connectionNum].weight)
+
+    pos = nx.get_node_attributes(G,'pos')
+    edge_weight=dict([((u,v,),float(d['weight'])) for u,v,d in G.edges(data=True)])
+    nx.draw_networkx_edge_labels(G,pos,edge_labels=edge_weight)
+    nx.draw_networkx_nodes(G,pos)
+    nx.draw_networkx_edges(G,pos)
+    nx.draw_networkx_labels(G,pos)
+    plt.axis('off')
+    plt.show()
+
 if __name__ == '__main__':
-    topology = [2, 2, 1]  #3 in the input layer, 2 in the second, 1 output
+    topology = [2, 2, 1]  #2 in the input layer, 2 in the second, 1 output
     inputVals = []
     targetVals = []
     resultVals = []
 
     inputs = np.genfromtxt('train.csv', delimiter=',')
-    map(np.random.shuffle, inputs)
+    inputs = shuffle(inputs)
     myNet = Net(topology)
 
     print "************************* TRAIN PHASE *************************"
@@ -215,7 +240,7 @@ if __name__ == '__main__':
         print entry
 
         #propagate the data
-        myNet.feedForward([entry[0], entry[1]])
+        myNet.feedForward([float(entry[0]), float(entry[1])])
 
         #Collect output
         result = list()
@@ -228,11 +253,15 @@ if __name__ == '__main__':
 
         print "Avg Error: " + str(myNet.getRecentAvgErr())
 
+        #visualize network and weights
+#        if nPass % 1000 == 0:
+#            drawEdges(myNet)
+
     print "******************** TEST PHASE ********************"
-    a = [1,1]
-    b = [1,0]
-    c = [0,1]
-    d = [1,1]
+    a = [1.,1.]
+    b = [1.,0.]
+    c = [0.,1.]
+    d = [0.,0.]
 
     printTestCase(myNet, a)
     printTestCase(myNet, b)
