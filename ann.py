@@ -1,100 +1,26 @@
-import math
+'''
+    ann.py - Neural network class that is responsible for forward propagation and training (back propagatin)
+
+'''
+
+from neuron import *
+from jANN_utils import *
+
 import numpy as np
-import random
 from sklearn.utils import shuffle
-import networkx as nx
-import matplotlib.pyplot as plt
-#neural network
-
-def randomWeight():
-    return random.random()
-
-def transferFunction(sum):
-    return math.tanh(sum)
-
-def transferFunctionDerivative(sum):
-    return 1-sum**2
-
-class Connection(object):
-    def __init__(self):
-        self.weight = 0.0
-        self.deltaWeight = 0.0
-
-
-class Neuron(object):
-    def __init__(self, numOutputs, index):
-        self._outputVal = None
-        self._outputWeights = []
-        self._index = index
-        self._gradient = 0.0
-        self._eta = 0.15 # [0.0 -> 1.0]
-        self._alpha = 0.7 # [0.0 -> h] momentum
-        #randomly intialize outut weights
-        for c in xrange(0, numOutputs):
-            self._outputWeights.append(Connection())
-            self._outputWeights[-1].weight = randomWeight()
-
-
-    def _sumDOW(self, nextLayer):
-        sum = 0.0
-        #sum contribution
-        for neuronNum in xrange(0, len(nextLayer)-1):
-            sum = sum + self._outputWeights[neuronNum].weight * nextLayer[neuronNum]._gradient
-        return sum
-
-
-    def setOutputVal(self, val):
-        self._outputVal = val
-
-    def getOutputVal(self):
-        return self._outputVal
-
-    def feedForward(self, prevLayer):
-        '''
-        Take weight*value for each neruon and connection and sum them up
-        :param prevLayer: list of neurons from the previous layer
-        '''
-        sum = 0
-        for neuronNum in xrange(0, len(prevLayer)):
-            '''weight_to_neuron is the weight from a neuron at the previous layer
-            to this current neuron that's stored in the current Neuron class object'''
-            weight_to_neuron = prevLayer[neuronNum]._outputWeights[self._index].weight
-
-            #suming W*I
-            sum = sum + prevLayer[neuronNum].getOutputVal() * weight_to_neuron
-
-        self._outputVal = transferFunction(sum)
-
-
-    def calcOutputGradients(self, targetVal):
-        delta = targetVal - self._outputVal
-        self._gradient = delta * transferFunctionDerivative(self._outputVal)
-
-    def calcHiddenGradients(self, nextLayer):
-        #derivative of weights
-        dow = self._sumDOW(nextLayer)
-        self._gradient = dow * transferFunctionDerivative(self._outputVal)
-
-
-    def updateInputWeights(self, prevLayer):
-
-        for neuronNum in xrange(0, len(prevLayer)):
-            neuron = prevLayer[neuronNum]
-            oldDeltaWeight = neuron._outputWeights[self._index].deltaWeight
-
-            newDeltaWeight = \
-                self._eta \
-                * neuron.getOutputVal() \
-                * self._gradient \
-                + self._alpha \
-                * oldDeltaWeight
-
-            neuron._outputWeights[self._index].deltaWeight = newDeltaWeight
-            neuron._outputWeights[self._index].weight = neuron._outputWeights[self._index].weight + newDeltaWeight
 
 
 class Net(object):
+    '''
+    Basic Neural Network class. Always adds a bias neuron to each level. The last level doesn't use the bias neuron.
+    This network is created as a fully connected network
+    '''
     def __init__(self, topology):
+        '''
+        Constructor
+        :param topology: LIST of neuron counts for each layer in the order
+        [input_layer, hidden, hiddner, ... , output_layer]
+        '''
         self._layers = [] # list of lists
         self._error = 0.0
         self._recentAvgError = 0.0
@@ -141,8 +67,7 @@ class Net(object):
     def backProp(self, targetVals):
         """
         Back propagation algorithm
-        :param targetVals:
-        :return:
+        :param targetVals: LIST of target values.
         """
 
         #first calculate the overall net error at the output
@@ -182,8 +107,36 @@ class Net(object):
             for neuronNum in xrange(0, len(layer)-1):
                 layer[neuronNum].updateInputWeights(prevLayer)
 
-    def getResults(self, results):
+    def train(self, inputVals, target):
+        '''
+        Train towards target given inputVals
+        :param inputVals: LIST of input values
+        :param target:  LIST of target values
+        '''
+        #propagate the input values forward in the net
+        self.feedForward(inputVals)
 
+        #train on the data by correcting for an amount of error
+        self.backProp(target)
+
+    def test(self, inputVals):
+        '''
+        Test input values to see what they return from the network
+        :param inputVals: LIST of input values
+        :return: LIST of output values
+        '''
+        outputVals = []
+        self.feedForward(inputVals)
+        self.getResults(outputVals)
+        return outputVals
+
+    def getResults(self, results):
+        '''
+        Gets the outputs for all the neruons at the output layer
+        TODO: Use return to output results instead of this passing thing.
+        :param results:
+        :return:
+        '''
         for neuronNum in xrange(0, len(self._layers[-1])-1):
             results.append(self._layers[-1][neuronNum].getOutputVal())
 
@@ -192,41 +145,11 @@ class Net(object):
 
 
 
-def printTestCase(myNet, a):
-    result = []
-    myNet.feedForward([float(a[0]), float(a[1])])
-    myNet.getResults(result)
-    print a
-    print result[0]
-
-def drawEdges(myNet):
-    G = nx.Graph()
-
-    #construct the graph
-    for layerNum in xrange(0, len(myNet._layers)-1):
-        for neuronNum in xrange(0, len(myNet._layers[layerNum])):
-            label0 = "%d, %d" % (layerNum, neuronNum)
-            G.add_node(label0, pos=(neuronNum, layerNum))
-            for connectionNum in xrange(0, len(myNet._layers[layerNum][neuronNum]._outputWeights)):
-                label1 = "%d, %d" % (layerNum+1, connectionNum)
-                G.add_node(label1, pos=(connectionNum, layerNum+1))
-                G.add_edge(label0, label1, weight = myNet._layers[layerNum][neuronNum]._outputWeights[connectionNum].weight)
-
-    pos = nx.get_node_attributes(G,'pos')
-    edge_weight=dict([((u,v,),float(d['weight'])) for u,v,d in G.edges(data=True)])
-    nx.draw_networkx_edge_labels(G,pos,edge_labels=edge_weight)
-    nx.draw_networkx_nodes(G,pos)
-    nx.draw_networkx_edges(G,pos)
-    nx.draw_networkx_labels(G,pos)
-    plt.axis('off')
-    plt.show()
 
 if __name__ == '__main__':
     topology = [2, 2, 1]  #2 in the input layer, 2 in the second, 1 output
-    inputVals = []
-    targetVals = []
-    resultVals = []
 
+    #Load data and shuffle for randomness
     inputs = np.genfromtxt('train.csv', delimiter=',')
     inputs = shuffle(inputs)
     myNet = Net(topology)
@@ -239,23 +162,17 @@ if __name__ == '__main__':
         print "Pass number " + str(nPass)+":"
         print entry
 
-        #propagate the data
-        myNet.feedForward([float(entry[0]), float(entry[1])])
+        #train
+        inputVals = [float(entry[0]), float(entry[1])]
+        target = [entry[2]]
+        myNet.train(inputVals, target)
 
         #Collect output
         result = list()
         myNet.getResults(result)
         print [entry[0], entry[1], result[0]]
 
-        #train on the data
-        target = [entry[2]]
-        myNet.backProp(target)
-
         print "Avg Error: " + str(myNet.getRecentAvgErr())
-
-        #visualize network and weights
-#        if nPass % 1000 == 0:
-#            drawEdges(myNet)
 
     print "******************** TEST PHASE ********************"
     a = [1.,1.]
@@ -268,4 +185,5 @@ if __name__ == '__main__':
     printTestCase(myNet, c)
     printTestCase(myNet, d)
 
-
+    #print the resulting network and weights
+    drawEdges(myNet)
